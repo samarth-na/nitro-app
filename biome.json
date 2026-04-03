@@ -1,1 +1,68 @@
-{}
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 4,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "always",
+      "quoteStyle": "single",
+      "trailingCommas": "es5",
+      "bracketSpacing": true,
+      "arrowParentheses": "always"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["*.tsx", "*.jsx"],
+      "formatter": {
+        "indentWidth": 2
+      }
+    },
+    {
+      "includes": ["*.html"],
+      "formatter": {
+        "indentWidth": 2
+      }
+    },
+
+    {
+      "includes": ["*.json"],
+      "formatter": {
+        "indentWidth": 2
+      }
+    }
+  ],
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+
+      "suspicious": {
+        "noUnusedExpressions": "error",
+        "noDoubleEquals": "error",
+        "noShadowRestrictedNames": "error",
+        "noArrayIndexKey": "warn"
+      },
+
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "noConstAssign": "error",
+        "noUndeclaredVariables": "error",
+        "useExhaustiveDependencies": "warn"
+      },
+      "complexity": {
+        "noForEach": "warn",
+        "noUselessFragments": "warn",
+        "useOptionalChain": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn"
+      }
+    }
+  }
+}

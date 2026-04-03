@@ -6,6 +6,7 @@
     "preview": "npx srvx --prod .output/"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.9",
     "@types/bcrypt": "^6.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/jsonwebtoken": "^9.0.10",
