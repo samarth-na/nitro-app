@@ -1,28 +1,14 @@
 import bcrypt from "bcrypt";
 import { createError, defineEventHandler, readBody } from "h3";
 import jwt from "jsonwebtoken";
-import { userlist } from "./userlist";
-
-// --- Types ---
-
-interface AuthRequestBody {
-	email: string;
-	password: string;
-}
-
-interface AuthResponse {
-	message: string;
-	user: { id: string; email: string };
-	token: string;
-}
-
-// Re-use the same store (In a real app, import this from a shared db file)
-
-const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-key-change-me";
+import { db } from "../../../db/db";
+import { users } from "../../../db/schema";
+import { JWT_EXPIRES_IN, JWT_SECRET } from "../../../config/auth";
+import { eq } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
 	try {
-		const body: any = await readBody(event);
+		const body = await readBody<{ email?: string; password?: string }>(event);
 		const { email, password } = body;
 
 		if (!email || !password) {
@@ -32,8 +18,8 @@ export default defineEventHandler(async (event) => {
 			});
 		}
 
-		// Find user
-		const user = userlist.find((u) => u.email === email);
+		const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+		const user = result[0];
 
 		if (!user) {
 			throw createError({
@@ -42,9 +28,7 @@ export default defineEventHandler(async (event) => {
 			});
 		}
 
-		// Verify Password
 		const isValid = await bcrypt.compare(password, user.password);
-
 		if (!isValid) {
 			throw createError({
 				statusCode: 401,
@@ -52,10 +36,11 @@ export default defineEventHandler(async (event) => {
 			});
 		}
 
-		// Generate Token
-		const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-			expiresIn: "1h",
-		});
+		const token = jwt.sign(
+			{ id: user.id, email: user.email },
+			JWT_SECRET,
+			{ expiresIn: JWT_EXPIRES_IN },
+		);
 
 		return {
 			message: "Sign in successful",
@@ -63,12 +48,11 @@ export default defineEventHandler(async (event) => {
 			token,
 		};
 	} catch (error: any) {
-		if (error.statusCode) {
-			throw error;
-		}
+		if (error.statusCode) throw error;
+		console.error("Signin error:", error);
 		throw createError({
 			statusCode: 500,
-			statusMessage: "Internal Server Error",
+			statusMessage: `Internal Server Error: ${error.message}`,
 		});
 	}
 });
