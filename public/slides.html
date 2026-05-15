@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nitro Auth — Backend Guide</title>
+<style>
+  :root {
+    --bg: #0f111a;
+    --bg2: #181a25;
+    --fg: #e2e4f0;
+    --muted: #8b92a8;
+    --accent: #7c5cff;
+    --accent2: #00d4aa;
+    --code-bg: #13141f;
+    --border: #282a3a;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  .deck {
+    width: 100vw; height: 100vh; position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .slide {
+    position: absolute; inset: 0; padding: 40px 60px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    opacity: 0; pointer-events: none; transform: translateX(60px);
+    transition: opacity .35s ease, transform .35s ease;
+    max-width: 1100px; margin: auto;
+  }
+  .slide.active {
+    opacity: 1; pointer-events: auto; transform: translateX(0);
+  }
+  .slide.prev { transform: translateX(-60px); }
+
+  h1 { font-size: 3.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+  h2 { font-size: 2rem; font-weight: 700; margin-bottom: 28px; color: var(--accent); }
+  h3 { font-size: 1.2rem; font-weight: 600; margin: 18px 0 8px; color: var(--accent2); }
+  p, li { font-size: 1.05rem; line-height: 1.65; color: var(--muted); }
+  ul { list-style: none; padding: 0; }
+  li { padding: 6px 0; padding-left: 22px; position: relative; }
+  li::before {
+    content: ""; position: absolute; left: 0; top: 15px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    background: rgba(124,92,255,.12); color: var(--accent);
+    font-size: .82rem; font-weight: 600; letter-spacing: .4px; text-transform: uppercase;
+  }
+  .grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 36px; width: 100%;
+  }
+  .grid-3 {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%;
+  }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px 26px;
+  }
+  .card h4 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; color: var(--fg); }
+  .card p { font-size: .92rem; line-height: 1.55; }
+  .code-block {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 22px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: .86rem; line-height: 1.6; overflow-x: auto; color: #d4d7e5;
+    white-space: pre; max-width: 100%;
+  }
+  .code-block .k { color: #ff79c6; } /* keyword */
+  .code-block .s { color: #f1fa8c; } /* string */
+  .code-block .n { color: #8be9fd; } /* number/bool */
+  .code-block .c { color: #6272a4; } /* comment */
+  .code-block .f { color: #50fa7b; } /* function */
+
+  .http {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-size: .78rem; font-weight: 700; margin-right: 8px;
+  }
+  .http.post { background: rgba(0,212,170,.15); color: #00d4aa; }
+  .http.get  { background: rgba(124,92,255,.15); color: #7c5cff; }
+
+  .nav {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 100;
+    background: rgba(15,17,26,.8); backdrop-filter: blur(12px);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 18px; align-items: center;
+  }
+  .nav button {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 1.3rem; cursor: pointer; padding: 4px 10px;
+    transition: color .2s;
+  }
+  .nav button:hover { color: var(--fg); }
+  .nav .dots { display: flex; gap: 6px; margin: 0 8px; }
+  .nav .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--border);
+    cursor: pointer; transition: background .2s;
+  }
+  .nav .dot.active { background: var(--accent); }
+  .nav .counter { font-size: .8rem; color: var(--muted); margin-left: 6px; }
+
+  .arrow-flow {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center;
+    margin: 18px 0;
+  }
+  .arrow-flow .node {
+    background: var(--bg2); border: 1px solid var(--border);
+    padding: 10px 18px; border-radius: 10px; font-size: .92rem; font-weight: 500;
+  }
+  .arrow-flow .arrow { color: var(--accent); font-size: 1.2rem; }
+
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px; background: var(--accent);
+    transition: width .3s ease; z-index: 200;
+  }
+
+  .small { font-size: .85rem; color: var(--muted); }
+
+  @media (max-width: 860px) {
+    .slide { padding: 24px 28px; }
+    h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.5rem; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <div class="slide active">
+    <div class="badge" style="margin-bottom:18px">Nitro Auth Backend</div>
+    <h1>Authentication<br><span style="color:var(--accent2)">Slide Deck</span></h1>
+    <p style="max-width:600px; text-align:center; margin-top:12px;">
+      A complete guide to the signup / signin system built on
+      <strong style="color:var(--fg)">Nitro</strong> + <strong style="color:var(--fg)">Drizzle ORM</strong> + <strong style="color:var(--fg)">SQLite</strong>.
+    </p>
+    <p class="small" style="margin-top:28px">Press <strong>Right Arrow</strong> or click the dots to navigate</p>
+  </div>
+
+  <!-- Slide 2: Architecture -->
+  <div class="slide">
+    <h2>Architecture Overview</h2>
+    <div class="grid-2">
+      <div>
+        <ul>
+          <li><strong>Nitro</strong> serves HTTP routes & middleware</li>
+          <li><strong>Drizzle ORM</strong> typesafe SQL queries</li>
+          <li><strong>better-sqlite3</strong> persistent local DB</li>
+          <li><strong>bcrypt</strong> password hashing (10 rounds)</li>
+          <li><strong>jsonwebtoken</strong> stateless auth tokens</li>
+        </ul>
+      </div>
+      <div class="code-block">project/
+├── config/auth.ts      <span class="c"># JWT secret + public routes</span>
+├── db/
+│   ├── db.ts           <span class="c"># SQLite connection</span>
+│   ├── schema.ts       <span class="c"># Users table definition</span>
+│   └── index.ts        <span class="c"># Seed script</span>
+├── middleware/
+│   └── auth.ts         <span class="c"># JWT guard (auto-detected)</span>
+├── routes/
+│   └── api/
+│       ├── auth/
+│       │   ├── signup.ts
+│       │   └── signin.ts
+│       └── example/
+│           └── index.ts
+└── nitro.config.ts</div>
+    </div>
+  </div>
+
+  <!-- Slide 3: DB Schema -->
+  <div class="slide">
+    <h2>Database Schema</h2>
+    <p style="margin-bottom:20px">Single <code>users</code> table — auto-created on first server start.</p>
+    <div class="code-block">CREATE TABLE users (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  email       TEXT NOT NULL UNIQUE,
+  password    TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+<span class="c">// Drizzle schema (db/schema.ts)</span>
+export const users = sqliteTable(<span class="s">"users"</span>, {
+  id:       integer(<span class="s">"id"</span>).primaryKey({ autoIncrement: <span class="n">true</span> }),
+  email:    text(<span class="s">"email"</span>).notNull().unique(),
+  password: text(<span class="s">"password"</span>).notNull(),
+  createdAt: text(<span class="s">"created_at"</span>).notNull().default(<span class="s">"CURRENT_TIMESTAMP"</span>),
+});</div>
+    <p class="small" style="margin-top:14px">No manual migration needed — <code>db.ts</code> runs <code>CREATE TABLE IF NOT EXISTS</code> on import.</p>
+  </div>
+
+  <!-- Slide 4: Auth Flow -->
+  <div class="slide">
+    <h2>Auth Flow</h2>
+    <div style="width:100%;">
+      <h3>Sign Up</h3>
+      <div class="arrow-flow">
+        <div class="node">Client</div>
+        <div class="arrow">→</div>
+        <div class="node">POST /api/auth/signup</div>
+        <div class="arrow">→</div>
+        <div class="node">Validate input</div>
+        <div class="arrow">→</div>
+        <div class="node">Hash password</div>
+        <div class="arrow">→</div>
+        <div class="node">Insert user</div>
+        <div class="arrow">→</div>
+        <div class="node">Return JWT</div>
+      </div>
+
+      <h3>Sign In</h3>
+      <div class="arrow-flow">
+        <div class="node">Client</div>
+        <div class="arrow">→</div>
+        <div class="node">POST /api/auth/signin</div>
+        <div class="arrow">→</div>
+        <div class="node">Lookup user</div>
+        <div class="arrow">→</div>
+        <div class="node">bcrypt.compare()</div>
+        <div class="arrow">→</div>
+        <div class="node">Return JWT</div>
+      </div>
+
+      <h3>Protected Request</h3>
+      <div class="arrow-flow">
+        <div class="node">Client</div>
+        <div class="arrow">→</div>
+        <div class="node">GET /api/example</div>
+        <div class="arrow">→</div>
+        <div class="node">Middleware</div>
+        <div class="arrow">→</div>
+        <div class="node">Verify JWT</div>
+        <div class="arrow">→</div>
+        <div class="node">Route handler</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Endpoints -->
+  <div class="slide">
+    <h2>API Endpoints</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h4><span class="http post">POST</span> /api/auth/signup</h4>
+        <p>Create a new user account.</p>
+        <div class="code-block" style="margin-top:10px">{
+  <span class="k">"email"</span>: <span class="s">"you@example.com"</span>,
+  <span class="k">"password"</span>: <span class="s">"securePass123"</span>
+}</div>
+        <div class="code-block" style="margin-top:8px"><span class="c">// 201 Created</span>
+{
+  <span class="k">"message"</span>: <span class="s">"User created successfully"</span>,
+  <span class="k">"user"</span>: { <span class="k">"id"</span>: <span class="n">1</span>, <span class="k">"email"</span>: <span class="s">"you@example.com"</span> },
+  <span class="k">"token"</span>: <span class="s">"eyJhbG..."</span>
+}</div>
+      </div>
+      <div class="card">
+        <h4><span class="http post">POST</span> /api/auth/signin</h4>
+        <p>Authenticate and receive a token.</p>
+        <div class="code-block" style="margin-top:10px">{
+  <span class="k">"email"</span>: <span class="s">"you@example.com"</span>,
+  <span class="k">"password"</span>: <span class="s">"securePass123"</span>
+}</div>
+        <div class="code-block" style="margin-top:8px"><span class="c">// 200 OK</span>
+{
+  <span class="k">"message"</span>: <span class="s">"Sign in successful"</span>,
+  <span class="k">"user"</span>: { <span class="k">"id"</span>: <span class="n">1</span>, <span class="k">"email"</span>: <span class="s">"you@example.com"</span> },
+  <span class="k">"token"</span>: <span class="s">"eyJhbG..."</span>
+}</div>
+      </div>
+    </div>
+    <p class="small" style="margin-top:16px;">Token expires in <strong>24h</strong>. Set <code>JWT_SECRET</code> env var in production.</p>
+  </div>
+
+  <!-- Slide 6: Middleware -->
+  <div class="slide">
+    <h2>Route Protection</h2>
+    <p style="margin-bottom:20px">Middleware <code>middleware/auth.ts</code> is auto-detected by Nitro and guards every request.</p>
+    <div class="code-block">const PUBLIC_ROUTES = [<span class="s">"/api/auth/signin"</span>, <span class="s">"/api/auth/signup"</span>];
+
+export <span class="k">default</span> defineEventHandler(<span class="k">async</span> (event) => {
+  <span class="k">if</span> (PUBLIC_ROUTES.includes(url.pathname)) <span class="k">return</span>; <span class="c">// pass through</span>
+
+  <span class="k">const</span> authHeader = event.headers.get(<span class="s">"authorization"</span>);
+  <span class="k">if</span> (!authHeader?.startsWith(<span class="s">"Bearer "</span>))
+    <span class="k">throw</span> createError({ statusCode: <span class="n">401</span>, statusMessage: <span class="s">"Unauthorized"</span> });
+
+  <span class="k">const</span> token = authHeader.slice(<span class="n">7</span>);
+  <span class="k">const</span> payload = jwt.verify(token, JWT_SECRET);
+  event.context.auth = { user: payload };
+});</div>
+    <div class="grid-3" style="margin-top:24px;">
+      <div class="card"><h4>Public</h4><p>Signin & signup routes skip JWT verification entirely.</p></div>
+      <div class="card"><h4>Protected</h4><p>All other routes require a valid <code>Bearer</code> token in the <code>Authorization</code> header.</p></div>
+      <div class="card"><h4>Context</h4><p>Valid tokens attach user info to <code>event.context.auth</code> for downstream handlers.</p></div>
+    </div>
+  </div>
+
+  <!-- Slide 7: Validation Rules -->
+  <div class="slide">
+    <h2>Input Validation</h2>
+    <div class="grid-2">
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <h4>Email</h4>
+          <p>Must match <code>/^[^\s@]+@[^\s@]+\.[^\s@]+$/</code></p>
+          <p class="small">400 Bad Request — "Invalid email format"</p>
+        </div>
+        <div class="card">
+          <h4>Password</h4>
+          <p>Minimum <strong>8 characters</strong></p>
+          <p class="small">400 Bad Request — "Password must be at least 8 characters"</p>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <h4>Required Fields</h4>
+          <p>Both <code>email</code> and <code>password</code> must be present</p>
+          <p class="small">400 Bad Request — "Email and password are required"</p>
+        </div>
+        <div class="card">
+          <h4>Duplicate Email</h4>
+          <p>SQLite <code>UNIQUE</code> constraint blocks duplicates</p>
+          <p class="small">409 Conflict — "User already exists"</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8: Using as Backend -->
+  <div class="slide">
+    <h2>How to Use as a Backend</h2>
+    <div class="grid-2">
+      <div>
+        <h3>1. Start the Server</h3>
+        <div class="code-block">bun run dev    <span class="c"># http://localhost:3000</span></div>
+
+        <h3>2. Sign Up</h3>
+        <div class="code-block">curl -X POST http://localhost:3000/api/auth/signup \\
+  -H <span class="s">"Content-Type: application/json"</span> \\
+  -d <span class="s">'{"email":"a@b.com","password":"pass1234"}'</span></div>
+
+        <h3>3. Sign In</h3>
+        <div class="code-block">curl -X POST http://localhost:3000/api/auth/signin \\
+  -H <span class="s">"Content-Type: application/json"</span> \\
+  -d <span class="s">'{"email":"a@b.com","password":"pass1234"}'</span></div>
+      </div>
+      <div>
+        <h3>4. Call Protected Routes</h3>
+        <div class="code-block"><span class="c"># Save the token from signin response</span>
+<span class="k">export</span> TOKEN=<span class="s">"eyJhbG..."</span>
+
+curl http://localhost:3000/api/example \\
+  -H <span class="s">"Authorization: Bearer $TOKEN"</span></div>
+
+        <h3>5. Production Build</h3>
+        <div class="code-block">JWT_SECRET=<span class="s">"your-secret"</span> bun run build
+
+<span class="c"># Preview the production build</span>
+npx srvx --prod .output/</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 9: Summary -->
+  <div class="slide">
+    <h2>Summary</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h4>Persistent</h4>
+        <p>SQLite database stores users across restarts. No in-memory hacks.</p>
+      </div>
+      <div class="card">
+        <h4>Secure</h4>
+        <p>Bcrypt hashing, JWT tokens, route-level middleware, input validation.</p>
+      </div>
+      <div class="card">
+        <h4>Simple</h4>
+        <p>Auto-detected middleware, zero-config table creation, standard HTTP APIs.</p>
+      </div>
+    </div>
+    <div class="code-block" style="margin-top:28px; text-align:center;">
+      <span class="c"># Quick start</span>
+      bun run dev
+      <span class="c"># Open this deck at http://localhost:3000/slides.html</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="nav">
+  <button onclick="prevSlide()">◀</button>
+  <div class="dots" id="dots"></div>
+  <button onclick="nextSlide()">▶</button>
+  <span class="counter" id="counter">1 / 9</span>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsContainer = document.getElementById('dots');
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  let current = 0;
+
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsContainer.appendChild(d);
+  });
+
+  function update() {
+    slides.forEach((s, i) => {
+      s.classList.remove('active', 'prev');
+      if (i === current) s.classList.add('active');
+      else if (i < current) s.classList.add('prev');
+    });
+    document.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+    progress.style.width = ((current + 1) / slides.length * 100) + '%';
+  }
+
+  function nextSlide() {
+    if (current < slides.length - 1) { current++; update(); }
+  }
+  function prevSlide() {
+    if (current > 0) { current--; update(); }
+  }
+  function goTo(i) {
+    current = i; update();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+    if (e.key === 'ArrowLeft') prevSlide();
+  });
+
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (diff > 40) nextSlide();
+    if (diff < -40) prevSlide();
+  });
+</script>
+</body>
+</html>
